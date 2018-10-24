@@ -1,7 +1,7 @@
 package main
 
 import (
-	"./ForFunc"
+	"github.com/click-angara/t2-invert-index-search-click-angara/ForFunc"
 	"bufio"
 	"fmt"
 	"os"

@@ -1,89 +1,75 @@
 package main
 
 import (
-	"github.com/click-angara/t2-invert-index-search-click-angara/ForFunc"
 	"bufio"
 	"fmt"
+	"github.com/click-angara/t2-invert-index-search-click-angara/invertedindex"
+	"io/ioutil"
 	"os"
 	"strings"
 )
 
+// прочитали файл → понизили регистр → вычленили слова
+func OperationOneFile(inxFile int, workFile []string) []string {
+
+	test1, err := ioutil.ReadFile(workFile[inxFile]) // прочитали из файла
+	if err != nil {
+		panic(err)
+	}
+	test2 := strings.ToLower(string(test1)) // привели все к нижнему регитру
+
+	var data []byte
+
+	for i := 0; i < len(test2); i += 1 {
+		if (test2[i] >= 'a' && test2[i] <= 'z') || test2[i] == '-' || test2[i] == ' ' || test2[i] == '\n' {
+			if test2[i] == '\n' {
+				data = append(data, ' ')
+			} else {
+				data = append(data, test2[i])
+			}
+		}
+	} // выделили только слова
+
+	datastr := strings.Split(string(data), " ")
+	return datastr
+}
+
 func main() {
-	nameFiles := os.Args[1:]                         // Считываем названия файлов и разделяем их в массив строк
-	vocabulary := make(map[string]map[string]int, 1) // слово → имя файла → количество вхождений
-	fileList := make(map[string]map[string]int, 1)   // имя файла → слово → количество вхождений
-
-	for indxfile := 0; indxfile < len(nameFiles); indxfile += 1 { // По очереди открываем файлы
-		// Открываем файл и проверям корректность открытия
-		infoFile, err := os.Open(string(nameFiles[indxfile]))
-		if err != nil { // если возникла ошибка
-			fmt.Println("Unable to create file:", err)
-			os.Exit(1) // выходим из программы
-		}
-		defer infoFile.Close() // закрываем файл в конце работы
-
-		// Начинаем читать файл по словам
-		scanner := bufio.NewScanner(infoFile)
-		scanner.Split(bufio.ScanWords)
-		for scanner.Scan() {
-			var line string       // Здесь лежит считанная строка
-			line = scanner.Text() // Считали строку из файла
-			line = strings.Trim(line, "\n")
-
-			if _, ok := vocabulary[line]; ok {
-				vocabulary[line][nameFiles[indxfile]] += 1
-			} else {
-				tmp := make(map[string]int)
-				tmp[nameFiles[indxfile]] = 1
-				vocabulary[line] = tmp
-			}
-			if _, ok := fileList[nameFiles[indxfile]]; ok {
-				fileList[nameFiles[indxfile]][line] += 1
-			} else {
-				tmp := make(map[string]int)
-				tmp[line] = 1
-				fileList[nameFiles[indxfile]] = tmp
-			}
-		}
+	var text []string
+	flagMap := invertedindex.AddMap() // выделили память для структур
+	if !flagMap {
+		fmt.Println("ERR")
+		os.Exit(1)
 	}
 
+	nameFiles := os.Args[1:]
+	if len(nameFiles) < 1 {
+		fmt.Println("Wrong format")
+	} // Проверили корректность ввода
+
+	// прочитали файл → понизили регистр → вычленили только слова
+	for i, namef := range nameFiles {
+		text = OperationOneFile(i, nameFiles)
+		flagCheck := invertedindex.AddNewFile(text, namef)
+		if !flagCheck {
+			fmt.Println("Unable to add file:")
+			os.Exit(1) // выходим из программы
+		}
+	}
 	// Читаем запрос с консоли
 	fmt.Print("Enter text: ")
 	myscanner := bufio.NewScanner(os.Stdin)
 	myscanner.Scan()
-	text := myscanner.Text()
+	text1 := myscanner.Text()
 
-	example := strings.Split(text, " ") // преобразовали в массив строк
+	line := strings.ToLower(text1)      // привели все к нижнему регитру
+	example := strings.Split(line, " ") // преобразовали в массив строк
 	example[len(example)-1] = strings.Trim(example[len(example)-1], "\n")
 
-	inst := 0
-	for word, tmp := range vocabulary { // Ищем первое слово в словаре
-		// !!! Что делать с пустым запросом
-		if word == example[0] { // Нашли файл с совпадением
-			for file, count := range tmp { // проходим поочередно по всем файлам, в которых есть первое слово
-				// ищем каждый файл во вспомогательной map
-				countwrite := count
-				flag := 1
-				for file1, _ := range fileList {
-					if file1 == file { // значит ищем в этом файле все введенные слова
-						for indx := 1; indx < len(example); indx += 1 {
-							for word1, count1 := range fileList[file1] {
-								if example[indx] == word1 {
-									countwrite += count1
-									flag += 1
-									break
-								}
-							}
-						}
-						if flag == len(example) { // значит встретили все слова
-							flag = ForFunc.AddStruct(countwrite, file)
-							inst += 1
-						}
-					}
-				}
-			}
-			break
-		}
+	var ForPrintSt []invertedindex.ForPrint
+	ForPrintSt = (invertedindex.FileSearch(example)) // Ищем запрос в словаре
+	for _, indx := range ForPrintSt {
+		fmt.Println("-", indx.Namefi, "; совпадений -", indx.Count)
 	}
-	ForFunc.SortStruct()
+
 }
